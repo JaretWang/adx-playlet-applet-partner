@@ -1,0 +1,28 @@
+server:
+  port: 8123
+
+spring:
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+  application:
+    name: adx-playlet-applet-partner
+  profiles:
+    active: dev
+
+mybatis:
+  mapper-locations: classpath:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+pagehelper:
+  helper-dialect: mysql  # 配置MySQL方言
+  params: count=countSql
+  support-methods-arguments: true
+  reasonable: true
+  auto-runtime-dialect: true
+  auto-dialect: true
+
+logPath: /data0/logs/${spring.application.name}/

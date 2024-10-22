@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="10 seconds">
+
+    <springProperty scope="context" name="springAppName" source="spring.application.name"/>
+    <springProperty scope="context" name="logstash" source="logstash"/>
+    <springProperty scope="context" name="logPath" source="logPath"/>
+    <springProperty scope="context" name="HOME_PATH" source="logPath"/>
+
+    <property name="CONSOLE_LOG_PATTERN"
+              value="[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%X{trackAdId}] [%thread] [%-5level] [%logger{36}] [%M] [%line] => %msg%n"/>
+
+    <!--历史日志文件个数限制，配置0为不限制数量-->
+    <property name="logMaxHistory" value="24"/>
+
+    <!--生产环境去掉控制台输出-->
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+        <withJansi>true</withJansi>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="org.apache.skywalking.apm.toolkit.log.logback.v1.x.TraceIdPatternLogbackLayout">
+                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <appender name="dailyRollingFileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <File>${logPath}${springAppName}.log</File>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${logPath}${springAppName}.log-%d{yyyy-MM-dd}-%i</FileNamePattern>
+            <maxHistory>${logMaxHistory}</maxHistory>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>1024MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="org.apache.skywalking.apm.toolkit.log.logback.v1.x.TraceIdPatternLogbackLayout">
+                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            </layout>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>1024</queueSize>
+        <includeCallerData>true</includeCallerData>
+        <appender-ref ref="dailyRollingFileAppender"/>
+    </appender>
+
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>${logstash}</destination>
+<!--        <destination>10.1.9.47:9600</destination>-->
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <mdc/>
+                <timestamp/>
+                <version/>
+                <pattern>
+                    <pattern>
+                        {
+                        "service": "${springAppName:-}",
+                        "trace": "%tid",
+                        "thread": "%thread",
+                        "level": "%level",
+                        "logger": "%logger{36}",
+                        "method": "%M",
+                        "line": "%line",
+                        "stack": "%exception",
+                        "message": "%message"
+                        }
+                    </pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
+    <!--    打印controller请求日志-->
+    <logger name="org.springframework.web.servlet.mvc.method.annotation.RequestResponseBodyMethodProcessor" level="debug"/>
+    <!--    打印controller返回日志-->
+    <logger name="org.apache.coyote.http11.Http11InputBuffer" level="debug"/>
+    <!--    打印事务日志-->
+    <logger name="org.springframework.orm.jpa.JpaTransactionManager" level="DEBUG"/>
+
+    <root level="info">
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="LOGSTASH"/>
+    </root>
+    <springProfile name="dev">
+        <root level="info">
+            <appender-ref ref="stdout"/>
+            <appender-ref ref="LOGSTASH"/>
+        </root>
+        <logger name="com.dataeye.partner.mapper"  level="DEBUG" />
+    </springProfile>
+
+</configuration>
